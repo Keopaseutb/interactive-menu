@@ -6,21 +6,30 @@ define(function(require, exports, module) {
     var Surface       = require('famous/core/Surface');
     var Transform     = require('famous/core/Transform');
     var StateModifier = require('famous/modifiers/StateModifier');
-    var Easing = require('famous/transitions/Easing');
-    var StripData = require('data/StripData');
+    var Easing        = require('famous/transitions/Easing');
+    var StripData     = require('data/StripData');
+    var GenericSync   = require('famous/inputs/GenericSync');
+    var MouseSync     = require('famous/inputs/MouseSync');
+    var TouchSync     = require('famous/inputs/TouchSync');
+    var Transitionable = require('famous/transitions/Transitionable');
+    var Modifier      = require('famous/core/Modifier');
 
-    var PageView = require('views/PageView');
-    var MenuView = require('views/MenuView');
+    GenericSync.register({'mouse' : MouseSync, 'touch' : TouchSync});
+
+    var PageView      = require('views/PageView');
+    var MenuView      = require('views/MenuView');
 
     function AppView() {
         View.apply(this, arguments);
 
         this.menuToggle = false;
+        this.pageViewPos = new Transitionable(0);
 
         _createPageView.call(this);
         _createMenuView.call(this);
 
         _setListeners.call(this);
+        _handleSwipe.call(this);
     }
 
     AppView.prototype = Object.create(View.prototype);
@@ -35,11 +44,15 @@ define(function(require, exports, module) {
     };
 
     AppView.prototype.slideRight = function(){
-        this.pageModifier.setTransform(Transform.translate(this.options.openPosition, 0 , 0), this.options.transition);
+        this.pageViewPos.set(this.options.openPosition, this.options.transition, function(){
+            this.menuToggle = true;
+        }.bind(this));
     };
 
     AppView.prototype.slideLeft = function(){
-        this.pageModifier.setTransform(Transform.translate(0, 0, 0 ), this.options.transition);
+        this.pageViewPos.set(0, this.options.transition, function(){
+            this.menuToggle = false;
+        }.bind(this));
     };
 
     AppView.DEFAULT_OPTIONS = {
@@ -52,12 +65,16 @@ define(function(require, exports, module) {
 
     function _createPageView(){
         this.pageView = new PageView();
-        this.pageModifier = new StateModifier();
+        this.pageModifier = new Modifier({
+            transform: function(){
+                return Transform.translate(this.pageViewPos.get(), 0, 0);
+            }.bind(this)
+        });
         this.add(this.pageModifier).add(this.pageView);
     }
 
     function _createMenuView(){
-        this.menuView = new MenuView({ StripData: StripData});
+        this.menuView = new MenuView({ stripData: StripData});
 
         var menuModifier = new StateModifier({
             transform: Transform.behind
@@ -68,6 +85,21 @@ define(function(require, exports, module) {
 
     function _setListeners(){
         this.pageView.on('menuToggle', this.toggleMenu.bind(this));
+    }
+
+    function _handleSwipe(){
+        var sync = new GenericSync(
+            ['mouse', 'touch'],
+            {direction : GenericSync.DIRECTION_X}
+        );
+
+        this.pageView.pipe(sync);
+
+        sync.on('update', function(data){
+            var currentPosition = this.pageViewPos.get();
+
+            this.pageViewPos.set( Math.max(0, currentPosition + data.delta));
+        }.bind(this));
     }
 
     module.exports = AppView;
