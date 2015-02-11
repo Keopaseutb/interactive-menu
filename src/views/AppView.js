@@ -12,11 +12,37 @@ define(function(require, exports, module) {
     function AppView() {
         View.apply(this, arguments);
 
+        this.menuToggle = false;
+
         _createPageView.call(this);
+
+        _setListeners.call(this);
     }
 
     AppView.prototype = Object.create(View.prototype);
     AppView.prototype.constructor = AppView;
+    AppView.prototype.toggleMenu = function(){
+        if(this.menuToggle){
+            this.slideLeft();
+        }else {
+            this.slideRight();
+        }
+        this.menuToggle = !this.menuToggle;
+    };
+
+    AppView.prototype.slideRight = function(){
+        this.pageModifier.setTransform(Transform.translate(276, 0 , 0), {
+            duration: 300,
+            curve: 'easeOut'
+        });
+    };
+
+    AppView.prototype.slideLeft = function(){
+        this.pageModifier.setTransform(Transform.translate(0, 0, 0 ), {
+            duration: 300,
+            curve: 'easeOut'
+        });
+    };
 
     AppView.DEFAULT_OPTIONS = {};
 
@@ -24,6 +50,10 @@ define(function(require, exports, module) {
         this.pageView = new PageView();
         this.pageModifier = new StateModifier();
         this.add(this.pageModifier).add(this.pageView);
+    }
+
+    function _setListeners(){
+        this.pageView.on('menuToggle', this.toggleMenu.bind(this));
     }
 
     module.exports = AppView;
